@@ -9,7 +9,7 @@
     :author "Michael Filonenko <filonenko.mikhail@gmail.com>"
     :licence "MIT"
     :description "cl-ewkb is a geospatial library, based on cl-wkb, that implements the OGC Well-Known Binary geographic geometry data model with PostGIS 3d, 4d extensions, and provides WKB and EWKB encoding and decoding functionality. cl-wkb author is J.P. Larocue."
-    :depends-on (:ieee-floats :sb-flexi-streams)
+    :depends-on (:ieee-floats :flexi-streams)
     :components 
     ((:module :cl-ewkb
          :components ((:file "ieee-floats")

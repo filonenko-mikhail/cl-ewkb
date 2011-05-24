@@ -40,9 +40,9 @@
                 (pointz-primitive-z point)
                 (pointzm-primitive-m point)))))
 
-(defun draw-line-primitive (line)
+(defun draw-linear-ring (line)
     (map 'nil (lambda (point) (draw-point-primitive point))
-        (line-primitive-points line)))
+        (linear-ring-points line)))
 
 (defun draw-single-point (point)
     (draw-point-primitive (gisgeometry-object point)))
@@ -53,12 +53,12 @@
 
 (defun draw-linestring (line)
     (gl:with-primitives :line-strip
-        (draw-line-primitive (gisgeometry-object line))))
+        (draw-linear-ring (gisgeometry-object line))))
 
 (defun draw-polygon (polygon)
     "Draw only first line of polygon"
     (gl:with-primitives :polygon
-        (draw-line-primitive (elt (gisgeometry-object polygon) 0))))
+        (draw-linear-ring (elt (gisgeometry-object polygon) 0))))
 
 (defun draw-multipoint (points)
     (gl:with-primitive :points
@@ -98,18 +98,8 @@
 
 (cffi:defcallback draw :void ()
     (gl:clear :color-buffer)
-    
-    ;; Letter P
-    (dolist (row (query
-                     (:select
-                         (:raw "unnest(ARRAY[ST_AsBinary(ST_AsEWKB('GEOMETRYCOLLECTION(LINESTRING(-100 0 0, 100 0 0), LINESTRING(0 -100 0, 0 100 0), LINESTRING(0 0 -100, 0 0 100))'))
--- Letter O
-,ST_AsBinary(ST_AsEWKB('LINESTRING(3.5 0, 2.2 1, 3 3, 4.2 5, 5.2 3, 4.5 1, 3.5 0)'))
--- letter S
-,ST_AsBinary(ST_AsEWKB('LINESTRING(3.5 0, 2.2 1, 3 3, 4.2 5, 5.2 3, 4.5 1, 3.5 0)'))
-])
-"))))
-        (draw-gisobject (decode (car row))))
+    (draw-gisobject (decode (caar (query (:select (:ST_AsEWKB "POINT(0 0)"))))))
+    (draw-gisobject (decode (caar (query (:select (:ST_AsEWKB "LINESTRING(1 2 1, 2 3 4)"))))))
     (gl:flush))
 
 ;;,
@@ -128,8 +118,7 @@
         (gl:ortho (- nrange) nrange (- (* nrange (/ height width))) 
             (* nrange (/ height width)) (- nrange) nrange)
         (gl:ortho  (- (* nrange (/ height width))) (* nrange (/ height width))
-            (- nrange) nrange (- nrange) nrange))
-    )
+            (- nrange) nrange (- nrange) nrange)))
 
 (defun main ()
     (init-db)

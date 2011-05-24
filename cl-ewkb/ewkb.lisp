@@ -11,7 +11,7 @@
 (deftype encoded-uint8 ()
     '(or strictly-encoded-uint8 list))
 
-(deftype uint32 ()x
+(deftype uint32 ()
     '(unsigned-byte 32))
 (deftype strictly-encoded-uint32 ()
     '(vector (unsigned-byte 8) 4))
@@ -191,21 +191,6 @@ endianness designator: :BIG-ENDIAN or :LITTLE-ENDIAN."
 ;;;; API and COMMON PROCEDURES.
 ;;;;
 
-;; (defmacro simple-defstruct-and-export (structure specials &rest members)
-;;   "Define a structure STRUCT with members MEMBERS and export the
-;;    standard functions created. SPECIALS is a list of extra parameters eg
-;;    ((:print-function pf)). Note double parentheses."
-;;   (append
-;;    `(progn
-;;       ,(append `(defstruct ,(append `(,structure) specials)) members)
-;;       ,`(export ,`(quote ,(intern (concatenate 'string "MAKE-" (symbol-name structure)))))
-;;       ,`(export ,`(quote ,(intern (concatenate 'string "COPY-" (symbol-name structure))))))
-;;       (mapcar
-;;           #'(lambda (member)
-;;                 `(export ,`(quote ,(intern (concatenate 'string(symbol-namestructure) "-" (symbol-name member))))))
-;;     members)))
-
-
 (defmacro defstruct-and-export (structure &rest members)
   "Define a structure STRUCT with members MEMBERS and export the
    standard functions created. SPECIALS is a list of extra parameters eg
@@ -302,7 +287,6 @@ endianness designator: :BIG-ENDIAN or :LITTLE-ENDIAN."
                           (:constructor make-multipolygon (type srid object))))
 
 
-
 ;;; FIXME: document these functions.
 (defparameter +endiannesses+
     '((0 . :big-endian)
@@ -337,32 +321,28 @@ endianness designator: :BIG-ENDIAN or :LITTLE-ENDIAN."
     (:method ((type (eql :2d)) in endianness)
         (make-point-primitive
             (decode-ieee754-double-from endianness in)
-            (decode-ieee754-double-from endianness in))
-        )
+            (decode-ieee754-double-from endianness in)))
     (:method ((type (eql :3dm)) in endianness)
         (make-pointm-primitive
             (decode-ieee754-double-from endianness in)
             (decode-ieee754-double-from endianness in)
-            (decode-ieee754-double-from endianness in))
-        )
+            (decode-ieee754-double-from endianness in)))
     (:method ((type (eql :3dz)) in endianness)
         (make-pointz-primitive
             (decode-ieee754-double-from endianness in)
             (decode-ieee754-double-from endianness in)
-            (decode-ieee754-double-from endianness in))
-        )
+            (decode-ieee754-double-from endianness in)))
     (:method ((type (eql :4d)) in endianness)
         (make-pointzm-primitive
             (decode-ieee754-double-from endianness in)
             (decode-ieee754-double-from endianness in)
             (decode-ieee754-double-from endianness in)
-            (decode-ieee754-double-from endianness in))
-        ))
+            (decode-ieee754-double-from endianness in))))
 
 (defun decode-primitive-point (in type endianness)
     (generic-decode-primitive-point (dimension type) in endianness))
 
-(defun decode-llinear-ring (in type endianness)
+(defun decode-linear-ring (in type endianness)
     (let ((data (make-array 0 :fill-pointer 0 :element-type 'vector :adjustable T)))
         (dotimes (i (decode-uint32-from endianness in))
             (vector-push-extend (decode-primitive-point in type endianness) data))
@@ -379,8 +359,8 @@ endianness designator: :BIG-ENDIAN or :LITTLE-ENDIAN."
         (case (cdr (assoc (logand type +wkb-typemask+) +wkb-types+ :test #'=))
             (:point
                 (make-point type srid (decode-primitive-point in type endianness)))
-            (:line-string
-                (make-linestring type srid (decode-llinear-ring in type endianness)))
+            (:linestring
+                (make-linestring type srid (decode-linear-ring in type endianness)))
             (:polygon
                 (dotimes (i (decode-uint32-from endianness in))
                     (vector-push-extend (decode-linear-ring in type endianness) data))
@@ -389,7 +369,7 @@ endianness designator: :BIG-ENDIAN or :LITTLE-ENDIAN."
                 (dotimes (i (decode-uint32-from endianness in))
                     (vector-push-extend (decode-from in) data))
                 (make-multipoint type srid data))
-            (:multi-line-string
+            (:multi-linestring
                 (dotimes (i (decode-uint32-from endianness in))
                     (vector-push-extend (decode-from in) data))
                 (make-multilinestring type srid data))
@@ -425,8 +405,7 @@ endianness designator: :BIG-ENDIAN or :LITTLE-ENDIAN."
         (encode-ieee754-double-to (pointzm-primitive-x object) endianness out)
         (encode-ieee754-double-to (pointzm-primitive-y object) endianness out)
         (encode-ieee754-double-to (pointzm-primitive-z object) endianness out)
-        (encode-ieee754-double-to (pointzm-primitive-m object) endianness out)
-        ))
+        (encode-ieee754-double-to (pointzm-primitive-m object) endianness out)))
 
 (defun encode-primitive-point (object out type endianness)
     (generic-encode-primitive-point (dimension type) object out endianness))
@@ -447,7 +426,7 @@ endianness designator: :BIG-ENDIAN or :LITTLE-ENDIAN."
         (case (cdr (assoc (logand type +wkb-typemask+) +wkb-types+ :test #'=))
             (:point
                 (encode-primitive-point (gisgeometry-object object) stream type endianness))
-            (:line-string
+            (:linestring
                 (encode-linear-ring (gisgeometry-object object) stream type endianness))
             (:polygon
                 (encode-uint32-to (length (gisgeometry-object object)) endianness stream)
@@ -459,7 +438,7 @@ endianness designator: :BIG-ENDIAN or :LITTLE-ENDIAN."
                 (map 'nil (lambda (object)
                               (encode-to object stream endianness))
                     (gisgeometry-object object)))
-            (:multi-line-string
+            (:multi-linestring
                 (encode-uint32-to (length (gisgeometry-object object)) endianness stream)
                 (map 'nil (lambda (object)
                               (encode-to object stream endianness))
@@ -473,8 +452,7 @@ endianness designator: :BIG-ENDIAN or :LITTLE-ENDIAN."
                 (encode-uint32-to (length (gisgeometry-object object)) endianness stream)
                 (map 'nil (lambda (object)
                               (encode-to object stream endianness))
-                    (gisgeometry-object object)))
-            )))
+                    (gisgeometry-object object))))))
 
 (defun encode (object &optional (endianness :little-endian))
     "Function to encode geoobject to WKB/EWKB representation to sequence. Endianness: :little-endian, :big-endian"

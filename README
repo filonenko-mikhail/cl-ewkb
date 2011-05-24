@@ -1,0 +1,33 @@
+
+cl-postgis - library for encoding/decoding to/from Well-Known Binary format. Also library supports PostGIS EWKB.
+
+DEPENDENCIES:
+ ieee-floats (built-in)
+ flexi-streams
+
+USING
+
+Library supports following PostGIS types:
+
+POINT
+LINSTRING
+POLYGON
+MULTIPOINT
+MULTILINESTRING
+MULTIPOLYGON
+GEOMETRYCOLLECTION
+
+Functions for decoding:
+
+(decode octets)
+Decode from wkb sequence
+(decode-from stream)
+Decode from wkb stream
+
+Functions for encoding:
+
+(encode object endianness)
+Encode object to vector
+
+(encode-to object stream endianness)
+Encode object to stream with endianness

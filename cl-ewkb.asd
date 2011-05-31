@@ -12,8 +12,7 @@
     :depends-on (:ieee-floats :flexi-streams)
     :components 
     ((:module :cl-ewkb
-         :components ((:file "ieee-floats")
-                         (:file "package")
+         :components ((:file "package")
                          (:file "ewkb" :depends-on ("package"))))))
 
 (defsystem :cl-ewkb-tests

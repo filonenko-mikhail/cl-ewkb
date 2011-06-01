@@ -8,6 +8,8 @@
 (require :postmodern)
 (use-package :postmodern)
 
+;;(connect-toplevel "michael" "michael" "xxx" "localhost")
+
 (defmacro with-gensyms ((&rest names) &body body)
     `(let ,(loop for n in names collect `(,n (gensym)))
          ,@body))
@@ -34,10 +36,6 @@ cases."
     "Report the results of a single test case. Called by 'check'."
     (format t "~:[FAIL~;pass~] ... ~a: ~a~%" result *test-name* form)
     result)
-
-
-
-;;(connect-toplevel "michael" "michael" "xxx" "localhost")
 
 (deftest gispoint-test ()
     (let ((gispoint (caar (query (:select (:ST_AsEWKB "POINT(0 0)")))))

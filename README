@@ -25,10 +25,10 @@ gisgeometry type srid object
 gisgeometry parent struct for other types and also contains "GEOMETRYCOLLECTION"
 
 point type srid (object as pointXX-primitive)
-linestring type srid (object as linear-ring)
+line-string type srid (object as linear-ring)
 polygon type srid (object as (array of linear-ring))
 multi-point type srid (object as (array of point))
-multi-linestring type srid (object as (array of linestring))
+multi-line-string type srid (object as (array of linestring))
 multi-polygon type srid (object as (array of polygon))
 geometry-collection type srid (object as (array of other objects))
 
@@ -106,7 +106,7 @@ Drawing objects
     (gl:with-primitives :points
         (draw-point-primitive (gisgeometry-object point))))
 
-(defun draw-linestring (line)
+(defun draw-line-string (line)
     (gl:with-primitives :line-strip
         (draw-linear-ring (gisgeometry-object line))))
 
@@ -116,4 +116,4 @@ General drawing function
 (defun draw-gisobject (object)
     (cond
         ((point-p object) (draw-point object))
-        ((linestring-p object) (draw-linestring object))))
+        ((line-string-p object) (draw-linestring object))))

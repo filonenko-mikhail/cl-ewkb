@@ -1,4 +1,4 @@
-(in-package :cl-ewkb)
+(in-package :cl-wkb)
 ;;;; -----------------------------------------------------
 ;;;;
 ;;;; PRIMITIVE TYPES: Integers.
@@ -190,104 +190,92 @@ endianness designator: :BIG-ENDIAN or :LITTLE-ENDIAN."
 ;;;;
 ;;;; API and COMMON PROCEDURES.
 ;;;;
+(defclass point-primitive ()
+  ((x :type ieee754-double :initarg :x :initform (error "Must specify X value.")
+      :reader x)
+   (y :type ieee754-double :initarg :y :initform (error "Must specify Y value.")
+      :reader y)
+   (z :type ieee754-double :initarg :z :initform 0.0d0
+      :reader z)
+   (m :type ieee754-double :initarg :m :initform 0.0d0
+      :reader m)))
 
-(defmacro defstruct-and-export (structure &rest members)
-  "Define a structure STRUCT with members MEMBERS and export the
-   standard functions created. SPECIALS is a list of extra parameters eg
-   ((:print-function pf)). Note double parentheses."
-  (append
-   `(progn
-      ,(if (not (null members))
-           (if (stringp (car members))
-               `(defstruct ,structure ,(car members) ,@(cdr members))
-               `(defstruct ,structure ,@members))
-           `(defstruct ,structure))
-      ,`(export ,`(quote ,(intern (concatenate 'string "MAKE-" (symbol-name (car structure))))))
-      ,`(export ,`(quote ,(intern (concatenate 'string "COPY-" (symbol-name (car structure)))))))
-   (if (not (null members))
-       (if (stringp (car members))
-           (mapcar  #'(lambda (member)
-                        `(export ,`(quote ,(intern (concatenate 'string (symbol-name (car structure)) "-" (symbol-name (car member))))))) (cdr members))
-           (mapcar  #'(lambda (member)
-                        `(export ,`(quote ,(intern (concatenate 'string (symbol-name (car structure)) "-" (symbol-name (car member))))))) members)))
-   (if (find :named structure)
-       `((export ,`(quote ,(intern (concatenate 'string (symbol-name (car structure)) "-P" ))))
-         (deftype ,(intern (symbol-name (car structure))) () '(satisfies ,(intern (concatenate 'string (symbol-name (car structure)) "-P" ))))
-         ))))
+(defclass linear-ring ()
+  ((points-primitive :type list :initarg :points-primitive :initform '()
+		     :accessor points-primitive)))
 
-(defstruct-and-export (point-primitive (:type vector)
-                                       :named
-                                       (:constructor make-point-primitive (x y)))
-    "2d point data - struct contains x y coordinates."
-  (x 0.0d0 :type ieee754-double)
-  (y 0.0d0 :type ieee754-double))
+(defclass geometry ()
+  ((geomtype :type uint32 :initarg :geomtype :initform 0 :accessor geomtype)
+   (srid :type uint32 :initarg :srid :initform 0 :accessor srid)))
 
+(defclass point (geometry)
+  ((point-primitive :type point-primitive :initarg :point-primitive :reader point-primitive)))
 
-(defstruct-and-export (pointz-primitive (:type vector)
-                                        :named
-                                        (:include point-primitive)
-                                        (:constructor make-pointz-primitive (x y z)))
-    "3dz point data - struct contains x y z coordinates."
-  (z 0.0d0 :type ieee754-double))
+(defmethod initialize-instance :after ((point point) &key point-primitive x y (z 0.0d0) (m 0.0d0))
+  (when (and (or (null x) (null y))
+	     (null point-primitive))
+    (error "Must specify :X and :Y values, or :POINT-PRIMITIVE."))
+  (when (and (not (null point-primitive))
+	     (or (not (null x))
+		 (not (null y))))
+    (error "Can't specify specify both :X and :Y values and :POINT-PRIMITIVE."))
+  (when (null point-primitive)
+    (setf (slot-value point 'point-primitive)
+	  (make-instance 'point-primitive :x x :y y :z z :m m))))
+(defmethod x ((point point))
+  (x (point-primitive point)))
+(defmethod y ((point point))
+  (y (point-primitive point)))
+(defmethod z ((point point))
+  (z (point-primitive point)))
+(defmethod m ((point point))
+  (m (point-primitive point)))
+(defmethod print-object ((point point) stream)
+  (print-unreadable-object (point stream :type t)
+    (format stream "~,5F, ~,5F ~,5F ~,5F" (x point) (y point) (z point) (m point))))
 
-(defstruct-and-export (pointm-primitive (:type vector)
-                                        :named
-                                        (:include point-primitive)
-                                        (:constructor make-pointm-primitive (x y m)))
-    "3dm point data - struct contains x y m coordinates."
-  (m 0.0d0 :type ieee754-double))
+(defclass line-string (geometry)
+  ((points-primitive :type list :initarg :points-primitive :initform '()
+		     :accessor points-primitive)))
+(defmethod print-object ((line-string line-string) stream)
+  (print-unreadable-object (line-string stream :type t)
+    (format stream "~{~A~^ ~}" (points-primitive line-string))))
 
-(defstruct-and-export (pointzm-primitive (:type vector)
-                                         :named
-                                         (:include pointz-primitive)
-                                         (:constructor make-pointzm-primitive (x y z m)))
-    "4d point data - struct contains x y z m coordinates."
-  (m 0.0d0 :type ieee754-double))
+(defclass polygon (geometry)
+  ((linear-rings :type list :initarg :linear-rings :initform '()
+		 :accessor linear-rings)))
+(defmethod print-object ((polygon polygon) stream)
+  (print-unreadable-object (polygon stream :type t)
+    (format stream "~{~A~^ ~}" (linear-rings polygon))))
 
-(defstruct-and-export (linear-ring (:type vector)
-                                   :named
-                                   (:constructor make-linear-ring (points)))
-    (points nil :type vector))
+(defclass multi-point (geometry)
+  ((points :type list :initarg :points :initform '()
+	   :accessor points)))
+(defmethod print-object ((multi-point multi-point) stream)
+  (print-unreadable-object (multi-point stream :type t)
+    (format stream "~{~A~^ ~}" (points multi-point))))
 
-(defstruct-and-export (gisgeometry (:type vector)
-                                   :named
-                                   (:constructor make-gisgeometry (type srid object)))
-    (type 0 :type uint32)
-  (srid 0 :type uint32)
-  (object))
+(defclass multi-line-string (geometry)
+  ((line-strings :type list :initarg :line-strings :initform '()
+		 :accessor line-strings)))
+(defmethod print-object ((multi-line-string multi-line-string) stream)
+  (print-unreadable-object (multi-line-string stream :type t)
+    (format stream "~{~A~^ ~}" (line-strings multi-line-string))))
 
-(defstruct-and-export (point (:type vector)
-                             :named
-                             (:include gisgeometry)
-                             (:constructor make-point (type srid object))))
+(defclass multi-polygon (geometry)
+  ((polygons :type list :initarg :polygons :initform '()
+	     :accessor polygons)))
+(defmethod print-object ((multi-polygon multi-polygon) stream)
+  (print-unreadable-object (multi-polygon stream :type t)
+    (format stream "~{~A~^ ~}" (polygons multi-polygon))))
 
-(defstruct-and-export (line-string (:type vector)
-                                  :named
-                                  (:include gisgeometry)
-                                  (:constructor make-line-string (type srid object))))
+(defclass geometry-collection (geometry)
+  ((geometries :type list :initarg :geometries :initform '()
+	       :accessor geometries)))
+(defmethod print-object ((geometry-collection geometry-collection) stream)
+  (print-unreadable-object (geometry-collection stream :type t)
+    (format stream "~{~A~^ ~}" (geometries geometry-collection))))
 
-(defstruct-and-export (polygon (:type vector)
-                               :named
-                               (:include gisgeometry)
-                               (:constructor make-polygon (type srid object))))
-
-(defstruct-and-export (multi-point (:type vector)
-                                  :named
-                                  (:include gisgeometry)
-                                  (:constructor make-multi-point (type srid object))))
-
-(defstruct-and-export (multi-line-string (:type vector)
-                                       :named
-                                       (:include gisgeometry)
-                                       (:constructor make-multi-line-string (type srid object))))
-
-(defstruct-and-export (multi-polygon (:type vector)
-                                    :named
-                                    (:include gisgeometry)
-                                    (:constructor make-multi-polygon (type srid object))))
-
-
-;;; FIXME: document these functions.
 (defparameter +endiannesses+
   '((0 . :big-endian)
     (1 . :little-endian)))
@@ -298,12 +286,11 @@ endianness designator: :BIG-ENDIAN or :LITTLE-ENDIAN."
 
 (defparameter +wkb-typemask+ #x0000000F)
 (defparameter +wkb-types+
-  '(
-    (1 . :point)
-    (2 . :line-string)
+  '((1 . :point)
+    (2 . :linestring)
     (3 . :polygon)
     (4 . :multi-point)
-    (5 . :multi-line-string)
+    (5 . :multi-linestring)
     (6 . :multi-polygon)
     (7 . :geometry-collection)))
 
@@ -319,71 +306,72 @@ endianness designator: :BIG-ENDIAN or :LITTLE-ENDIAN."
 (defgeneric generic-decode-primitive-point (type in endianness)
   (:documentation "Generic decode function for primitive point")
   (:method ((type (eql :2d)) in endianness)
-    (make-point-primitive
-     (decode-ieee754-double-from endianness in)
-     (decode-ieee754-double-from endianness in)))
+    (make-instance 'point-primitive
+                   :x (decode-ieee754-double-from endianness in)
+                   :y (decode-ieee754-double-from endianness in)))
   (:method ((type (eql :3dm)) in endianness)
-    (make-pointm-primitive
-     (decode-ieee754-double-from endianness in)
-     (decode-ieee754-double-from endianness in)
-     (decode-ieee754-double-from endianness in)))
+    (make-instance 'point-primitive
+                   :x (decode-ieee754-double-from endianness in)
+                   :y (decode-ieee754-double-from endianness in)
+                   :m (decode-ieee754-double-from endianness in)))
   (:method ((type (eql :3dz)) in endianness)
-    (make-pointz-primitive
-     (decode-ieee754-double-from endianness in)
-     (decode-ieee754-double-from endianness in)
-     (decode-ieee754-double-from endianness in)))
+    (make-instance 'point-primitive
+                   :x (decode-ieee754-double-from endianness in)
+                   :y (decode-ieee754-double-from endianness in)
+                   :z (decode-ieee754-double-from endianness in)))
   (:method ((type (eql :4d)) in endianness)
-    (make-pointzm-primitive
-     (decode-ieee754-double-from endianness in)
-     (decode-ieee754-double-from endianness in)
-     (decode-ieee754-double-from endianness in)
-     (decode-ieee754-double-from endianness in))))
+    (make-instance 'point-primitive
+                   :x (decode-ieee754-double-from endianness in)
+                   :y (decode-ieee754-double-from endianness in)
+                   :z (decode-ieee754-double-from endianness in)
+                   :m (decode-ieee754-double-from endianness in))))
 
 (defun decode-primitive-point (in type endianness)
   (generic-decode-primitive-point (dimension type) in endianness))
 
 (defun decode-linear-ring (in type endianness)
-  (let ((data (make-array 0 :fill-pointer 0 :element-type 'vector :adjustable T)))
+  (let ((data '()))
     (dotimes (i (decode-uint32-from endianness in))
-      (vector-push-extend (decode-primitive-point in type endianness) data))
-    (make-linear-ring data)))
+      (push (decode-primitive-point in type endianness) data))
+    (make-instance 'linear-ring :points-primitive (nreverse data))))
 
 (defun decode-from (in)
   "Function to decode geoobject from WKB/EWKB representation from stream."
   (let* ((endianness (cdr (assoc (decode-uint8-from :big-endian in) +endiannesses+ :test #'=)))
          (type (decode-uint32-from endianness in))
          (srid 0)
-         (data (make-array 0 :fill-pointer 0 :element-type 'vector :adjustable T)))
+         (data '()))
     (unless (zerop (logand +wkb-srid+ type))
       (setf srid (decode-uint32-from endianness in)))
     (case (cdr (assoc (logand type +wkb-typemask+) +wkb-types+ :test #'=))
       (:point
-       (make-point type srid (decode-primitive-point in type endianness)))
-      (:line-string
+       (make-instance 'point :geomtype type :srid srid
+                      :point-primitive (decode-primitive-point in type endianness)))
+      (:linestring
        (dotimes (i (decode-uint32-from endianness in))
-         (vector-push-extend (decode-primitive-point in type endianness) data))
-       (make-line-string type srid data))
+         (push (decode-primitive-point in type endianness) data))
+       (make-instance 'line-string :geomtype type :srid srid
+                      :points-primitive  (nreverse data)))
       (:polygon
        (dotimes (i (decode-uint32-from endianness in))
-         (vector-push-extend (decode-linear-ring in type endianness) data))
-       (make-polygon type srid data))
+         (push (decode-linear-ring in type endianness) data))
+       (make-instance 'polygon :geomtype type :srid srid :linear-rings (nreverse data)))
       (:multi-point
        (dotimes (i (decode-uint32-from endianness in))
-         (vector-push-extend (decode-from in) data))
-       (make-multi-point type srid data))
-      (:multi-line-string
+         (push (decode-from in) data))
+       (make-instance 'multi-point :geomtype type :srid srid :points (nreverse data)))
+      (:multi-linestring
        (dotimes (i (decode-uint32-from endianness in))
-         (vector-push-extend (decode-from in) data))
-       (make-multi-line-string type srid data))
+         (push (decode-from in) data))
+       (make-instance 'multi-line-string :geomtype type :srid srid :line-strings (nreverse data)))
       (:multi-polygon
        (dotimes (i (decode-uint32-from endianness in))
-         (vector-push-extend (decode-from in) data))
-       (make-multi-polygon type srid data))
+         (push (decode-from in) data))
+       (make-instance 'multi-polygon :geomtype type :srid srid :polygons (nreverse data)))
       (:geometry-collection
        (dotimes (i (decode-uint32-from endianness in))
-         (vector-push-extend (decode-from in) data))
-       (make-gisgeometry type srid data))
-      )))
+         (push (decode-from in) data))
+       (make-instance 'geometry-collection :geomtype type :srid srid :geometries (nreverse data))))))
 
 (defun decode (octets)
   "Function to decode geoobject from WKB/EWKB representation from sequence."
@@ -393,71 +381,72 @@ endianness designator: :BIG-ENDIAN or :LITTLE-ENDIAN."
 (defgeneric generic-encode-primitive-point (type object out endianness)
   (:documentation "Generic decode function for primitive point")
   (:method ((type (eql :2d)) object out endianness)
-    (encode-ieee754-double-to (point-primitive-x object) endianness out)
-    (encode-ieee754-double-to (point-primitive-y object) endianness out))
+    (encode-ieee754-double-to (slot-value object 'x) endianness out)
+    (encode-ieee754-double-to (slot-value object 'y) endianness out))
   (:method ((type (eql :3dm)) object out endianness)
-    (encode-ieee754-double-to (pointm-primitive-x object) endianness out)
-    (encode-ieee754-double-to (pointm-primitive-y object) endianness out)
-    (encode-ieee754-double-to (pointm-primitive-m object) endianness out))
+    (encode-ieee754-double-to (slot-value object 'x) endianness out)
+    (encode-ieee754-double-to (slot-value object 'y) endianness out)
+    (encode-ieee754-double-to (slot-value object 'm) endianness out))
   (:method ((type (eql :3dz)) object out endianness)
-    (encode-ieee754-double-to (pointz-primitive-x object) endianness out)
-    (encode-ieee754-double-to (pointz-primitive-y object) endianness out)
-    (encode-ieee754-double-to (pointz-primitive-z object) endianness out))
+    (encode-ieee754-double-to (slot-value object 'x) endianness out)
+    (encode-ieee754-double-to (slot-value object 'y) endianness out)
+    (encode-ieee754-double-to (slot-value object 'z) endianness out))
   (:method ((type (eql :4d)) object out endianness)
-    (encode-ieee754-double-to (pointzm-primitive-x object) endianness out)
-    (encode-ieee754-double-to (pointzm-primitive-y object) endianness out)
-    (encode-ieee754-double-to (pointzm-primitive-z object) endianness out)
-    (encode-ieee754-double-to (pointzm-primitive-m object) endianness out)))
+    (encode-ieee754-double-to (slot-value object 'x) endianness out)
+    (encode-ieee754-double-to (slot-value object 'y) endianness out)
+    (encode-ieee754-double-to (slot-value object 'z) endianness out)
+    (encode-ieee754-double-to (slot-value object 'm) endianness out)))
 
 (defun encode-primitive-point (object out type endianness)
   (generic-encode-primitive-point (dimension type) object out endianness))
 
 (defun encode-linear-ring (object out type endianness)
-  (encode-uint32-to (length (linear-ring-points object)) endianness out)
-  (map 'nil (lambda (point) (encode-primitive-point point out type endianness)) (linear-ring-points object)))
+  (encode-uint32-to (length (slot-value object 'points-primitive)) endianness out)
+  (map 'nil (lambda (point) (encode-primitive-point point out type endianness))
+       (points-primitive object)))
 
 (defun encode-to (object stream &optional (endianness :little-endian))
   "Function to encode geoobject to WKB/EWKB representation to binary stream. Endianness: :little-endian, :big-endian"
   (encode-uint8-to (car (rassoc endianness +endiannesses+ :test #'equal)) :big-endian stream)
   (let*
-      ((type (gisgeometry-type object))
-       (srid (gisgeometry-srid object)))
+      ((type (geomtype object))
+       (srid (srid object)))
     (encode-uint32-to type endianness stream)
     (unless (zerop (logand +wkb-srid+ type))
       (encode-uint32-to srid endianness stream))
     (case (cdr (assoc (logand type +wkb-typemask+) +wkb-types+ :test #'=))
       (:point
-       (encode-primitive-point (gisgeometry-object object) stream type endianness))
-      (:line-string
-       (encode-uint32-to (length (gisgeometry-object object)) endianness stream)
+       (encode-primitive-point (point-primitive object) stream type endianness))
+      (:linestring
+       (encode-uint32-to (length (points-primitive object)) endianness stream)
        (map 'nil (lambda (point)
                    (encode-primitive-point point stream type endianness))
-            (gisgeometry-object object)))
+            (points-primitive object)))
       (:polygon
-       (encode-uint32-to (length (gisgeometry-object object)) endianness stream)
+       (encode-uint32-to (length (linear-rings object)) endianness stream)
        (map 'nil (lambda (line)
                    (encode-linear-ring line stream type endianness))
-            (gisgeometry-object object)))
+            (linear-rings object)))
       (:multi-point
-       (encode-uint32-to (length (gisgeometry-object object)) endianness stream)
+       (encode-uint32-to (length (points object)) endianness stream)
        (map 'nil (lambda (object)
                    (encode-to object stream endianness))
-            (gisgeometry-object object)))
-      (:multi-line-string
-       (encode-uint32-to (length (gisgeometry-object object)) endianness stream)
+            (points object)))
+      (:multi-linestring
+       (encode-uint32-to (length (line-strings object)) endianness stream)
        (map 'nil (lambda (object)
                    (encode-to object stream endianness))
-            (gisgeometry-object object)))
+            (line-strings object)))
       (:multi-polygon
-       (encode-uint32-to (length (gisgeometry-object object)) endianness stream)
-       (map 'nil (lambda (object)
+       (encode-uint32-to (length (polygons object)) endianness stream)
+        (map 'nil (lambda (object)
                    (encode-to object stream endianness))
-            (gisgeometry-object object)))
+            (polygons object)))
       (:geometry-collection
-       (encode-uint32-to (length (gisgeometry-object object)) endianness stream)
+       (encode-uint32-to (length (geometries object)) endianness stream)
        (map 'nil (lambda (object)
                    (encode-to object stream endianness))
-            (gisgeometry-object object))))))
+            (geometries object))))))
 
 (defun encode (object &optional (endianness :little-endian))
   "Function to encode geoobject to WKB/EWKB representation to sequence. Endianness: :little-endian, :big-endian"

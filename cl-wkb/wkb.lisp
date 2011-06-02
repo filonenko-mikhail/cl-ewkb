@@ -1,9 +1,9 @@
 (in-package :cl-wkb)
+
 ;;;; -----------------------------------------------------
 ;;;;
 ;;;; PRIMITIVE TYPES: Integers.
 ;;;;
-
 (deftype uint8 ()
   '(unsigned-byte 8))
 (deftype strictly-encoded-uint8 ()

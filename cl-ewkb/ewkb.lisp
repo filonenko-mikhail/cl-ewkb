@@ -1,4 +1,4 @@
-(in-package :cl-ewkb)
+;;(in-package :cl-ewkb)
 ;;;; -----------------------------------------------------
 ;;;;
 ;;;; PRIMITIVE TYPES: Integers.
@@ -246,46 +246,56 @@ endianness designator: :BIG-ENDIAN or :LITTLE-ENDIAN."
 
 (defstruct-and-export (linear-ring (:type vector)
                                    :named
-                                   (:constructor make-linear-ring (points)))
-    (points nil :type vector))
+                                   (:constructor make-linear-ring (points-primitive)))
+    (points-primitive nil :type vector))
 
-(defstruct-and-export (gisgeometry (:type vector)
-                                   :named
-                                   (:constructor make-gisgeometry (type srid object)))
+(defstruct-and-export (geometry (:type vector)
+                          :named
+                          (:constructor make-gisgeometry (type srid)))
     (type 0 :type uint32)
-  (srid 0 :type uint32)
-  (object))
+    (srid 0 :type uint32))
 
 (defstruct-and-export (point (:type vector)
                              :named
-                             (:include gisgeometry)
-                             (:constructor make-point (type srid object))))
+                             (:include geometry)
+                             (:constructor make-point (type srid point-primitive)))
+    (point-primitive nil :type vector))
 
 (defstruct-and-export (line-string (:type vector)
-                                  :named
-                                  (:include gisgeometry)
-                                  (:constructor make-line-string (type srid object))))
+                                   :named
+                                   (:include geometry)
+                                   (:constructor make-line-string (type srid points-primitive)))
+    (points-primitive nil :type vector))
 
 (defstruct-and-export (polygon (:type vector)
                                :named
-                               (:include gisgeometry)
-                               (:constructor make-polygon (type srid object))))
+                               (:include geometry)
+                               (:constructor make-polygon (type srid linear-rings)))
+    (linear-rings nil :type vector))
 
 (defstruct-and-export (multi-point (:type vector)
                                   :named
-                                  (:include gisgeometry)
-                                  (:constructor make-multi-point (type srid object))))
+                                  (:include geometry)
+                                  (:constructor make-multi-point (type srid points)))
+    (points nil :type vector))
 
 (defstruct-and-export (multi-line-string (:type vector)
                                        :named
-                                       (:include gisgeometry)
-                                       (:constructor make-multi-line-string (type srid object))))
+                                       (:include geometry)
+                                       (:constructor make-multi-line-string (type srid line-strings)))
+    (line-strings nil :type vector))
 
 (defstruct-and-export (multi-polygon (:type vector)
                                     :named
-                                    (:include gisgeometry)
-                                    (:constructor make-multi-polygon (type srid object))))
+                                    (:include geometry)
+                                    (:constructor make-multi-polygon (type srid polygons)))
+    (polygons nil :type vector))
 
+(defstruct-and-export (geometry-collection (:type vector)
+                                    :named
+                                    (:include geometry)
+                                    (:constructor make-geometry-collection (type srid geometries)))
+    (geometries nil :type vector))
 
 ;;; FIXME: document these functions.
 (defparameter +endiannesses+
@@ -382,8 +392,7 @@ endianness designator: :BIG-ENDIAN or :LITTLE-ENDIAN."
       (:geometry-collection
        (dotimes (i (decode-uint32-from endianness in))
          (vector-push-extend (decode-from in) data))
-       (make-gisgeometry type srid data))
-      )))
+       (make-gisgeometry type srid data)))))
 
 (defun decode (octets)
   "Function to decode geoobject from WKB/EWKB representation from sequence."
@@ -413,51 +422,53 @@ endianness designator: :BIG-ENDIAN or :LITTLE-ENDIAN."
   (generic-encode-primitive-point (dimension type) object out endianness))
 
 (defun encode-linear-ring (object out type endianness)
-  (encode-uint32-to (length (linear-ring-points object)) endianness out)
-  (map 'nil (lambda (point) (encode-primitive-point point out type endianness)) (linear-ring-points object)))
+  (encode-uint32-to (length (linear-ring-points-primitive object)) endianness out)
+  (map 'nil
+       (lambda (point) (encode-primitive-point point out type endianness))
+       (linear-ring-points-primitive object)))
 
 (defun encode-to (object stream &optional (endianness :little-endian))
   "Function to encode geoobject to WKB/EWKB representation to binary stream. Endianness: :little-endian, :big-endian"
   (encode-uint8-to (car (rassoc endianness +endiannesses+ :test #'equal)) :big-endian stream)
   (let*
-      ((type (gisgeometry-type object))
-       (srid (gisgeometry-srid object)))
+      ((type (geometry-type object))
+       (srid (geometry-srid object)))
     (encode-uint32-to type endianness stream)
     (unless (zerop (logand +wkb-srid+ type))
       (encode-uint32-to srid endianness stream))
     (case (cdr (assoc (logand type +wkb-typemask+) +wkb-types+ :test #'=))
       (:point
-       (encode-primitive-point (gisgeometry-object object) stream type endianness))
+       (encode-primitive-point (point-point-primitive object) stream type endianness))
       (:line-string
-       (encode-uint32-to (length (gisgeometry-object object)) endianness stream)
+       (encode-uint32-to (length (line-string-points-primitive object)) endianness stream)
        (map 'nil (lambda (point)
                    (encode-primitive-point point stream type endianness))
-            (gisgeometry-object object)))
+            (line-string-points-primitive object)))
       (:polygon
-       (encode-uint32-to (length (gisgeometry-object object)) endianness stream)
+       (encode-uint32-to (length (polygon-linear-rings object)) endianness stream)
        (map 'nil (lambda (line)
                    (encode-linear-ring line stream type endianness))
-            (gisgeometry-object object)))
+            (polygon-linear-rings object)))
       (:multi-point
-       (encode-uint32-to (length (gisgeometry-object object)) endianness stream)
+       (encode-uint32-to (length (multi-point-points object)) endianness stream)
        (map 'nil (lambda (object)
                    (encode-to object stream endianness))
-            (gisgeometry-object object)))
+            (multi-point-points object)))
       (:multi-line-string
-       (encode-uint32-to (length (gisgeometry-object object)) endianness stream)
+       (encode-uint32-to (length (multi-line-string-line-strings object)) endianness stream)
        (map 'nil (lambda (object)
                    (encode-to object stream endianness))
-            (gisgeometry-object object)))
+            (multi-line-string-line-strings object)))
       (:multi-polygon
-       (encode-uint32-to (length (gisgeometry-object object)) endianness stream)
+       (encode-uint32-to (length (multi-polygon-polygons object)) endianness stream)
        (map 'nil (lambda (object)
                    (encode-to object stream endianness))
-            (gisgeometry-object object)))
+            (multi-polygon-polygons object)))
       (:geometry-collection
-       (encode-uint32-to (length (gisgeometry-object object)) endianness stream)
+       (encode-uint32-to (length (geometry-collection-geometries object)) endianness stream)
        (map 'nil (lambda (object)
                    (encode-to object stream endianness))
-            (gisgeometry-object object))))))
+            (geometry-collection-geometries object))))))
 
 (defun encode (object &optional (endianness :little-endian))
   "Function to encode geoobject to WKB/EWKB representation to sequence. Endianness: :little-endian, :big-endian"

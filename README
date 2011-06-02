@@ -1,12 +1,11 @@
 cl-ewkb is a geospatial library, based on cl-wkb, that implements the OGC Well-Known Binary geographic geometry data model with PostGIS 3d, 4d extensions, and provides WKB and EWKB encoding and decoding functionality. cl-wkb author is J.P. Larocue.
 
 Depends on:
- ieee-floats (built-in)
+ ieee-floats
  flexi-streams
 
 PostGIS extension WKB described in postgis-1.5/doc/ZMSgeoms.txt
 All extensions are supported: 3dz, 3dm, 4d, embedded SRID.
-
 
 Exported structs
 
@@ -17,20 +16,19 @@ pointzm-primitive x y z m
 point-primtive structs contain coordinates (2d, 3d, 4d)
 
 
-linear-ring points
+linear-ring points-primitive
 linear-ring struct contains array of point-primitive
 
+geometry type srid
+geometry parent struct for other types and also contains "GEOMETRYCOLLECTION"
 
-gisgeometry type srid object
-gisgeometry parent struct for other types and also contains "GEOMETRYCOLLECTION"
-
-point type srid (object as pointXX-primitive)
-line-string type srid (object as linear-ring)
-polygon type srid (object as (array of linear-ring))
-multi-point type srid (object as (array of point))
-multi-line-string type srid (object as (array of linestring))
-multi-polygon type srid (object as (array of polygon))
-geometry-collection type srid (object as (array of other objects))
+point type srid point-primitive
+line-string type srid points-primitive
+polygon type srid linear-rings
+multi-point type srid points
+multi-line-string type srid line-strings
+multi-polygon type srid polygons
+geometry-collection type srid geometries
 
 Exported functions
 
@@ -94,21 +92,16 @@ Draw pointXX-primitive
                 (pointz-primitive-z point)
                 (pointzm-primitive-m point)))))
 
-Drawing linear-ring
-
-(defun draw-linear-ring (line)
-    (map 'nil (lambda (point) (draw-point-primitive point))
-        (linear-ring-points line)))
-
 Drawing objects
 
 (defun draw-point (point)
     (gl:with-primitives :points
-        (draw-point-primitive (gisgeometry-object point))))
+        (draw-point-primitive (point-primitive point))))
 
-(defun draw-line-string (line)
+(defun draw-points (line-string)
     (gl:with-primitives :line-strip
-        (draw-linear-ring (gisgeometry-object line))))
+        (map 'nil (lambda (point) (draw-point-primitive point))
+             (line-string-points-primitive line-string))))
 
 
 General drawing function
@@ -116,4 +109,4 @@ General drawing function
 (defun draw-gisobject (object)
     (cond
         ((point-p object) (draw-point object))
-        ((line-string-p object) (draw-linestring object))))
+        ((line-string-p object) (draw-points object))))

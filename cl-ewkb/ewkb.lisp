@@ -392,7 +392,7 @@ endianness designator: :BIG-ENDIAN or :LITTLE-ENDIAN."
       (:geometry-collection
        (dotimes (i (decode-uint32-from endianness in))
          (vector-push-extend (decode-from in) data))
-       (make-gisgeometry type srid data)))))
+       (make-geometry-collection type srid data)))))
 
 (defun decode (octets)
   "Function to decode geoobject from WKB/EWKB representation from sequence."

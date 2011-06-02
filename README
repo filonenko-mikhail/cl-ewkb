@@ -103,7 +103,6 @@ Drawing objects
         (map 'nil (lambda (point) (draw-point-primitive point))
              (line-string-points-primitive line-string))))
 
-
 General drawing function
 
 (defun draw-gisobject (object)

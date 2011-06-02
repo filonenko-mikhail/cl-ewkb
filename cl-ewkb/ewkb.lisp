@@ -1,4 +1,4 @@
-;;(in-package :cl-ewkb)
+(in-package :cl-ewkb)
 ;;;; -----------------------------------------------------
 ;;;;
 ;;;; PRIMITIVE TYPES: Integers.

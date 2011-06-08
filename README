@@ -1,10 +1,11 @@
 cl-ewkb is a geospatial library, based on cl-wkb, that implements the OGC Well-Known Binary geographic geometry data model with PostGIS 3d, 4d extensions, and provides WKB and EWKB encoding and decoding functionality. cl-wkb author is J.P. Larocue.
+Library also provide module cl-wkb, which has CLOS-based API like http://enroutesystems.com/software/cl-wkb/ with PostGIS extensions.
 
 Depends on:
  ieee-floats
  flexi-streams
 
-PostGIS extension WKB described in postgis-1.5/doc/ZMSgeoms.txt
+PostGIS extension WKB is described in postgis-1.5/doc/ZMSgeoms.txt
 All extensions are supported: 3dz, 3dm, 4d, embedded SRID.
 
 Exported structs
@@ -49,7 +50,7 @@ Example:
 
 Getting data from postgresql and decode it:
 
-(decode (caar (query (:select (:ST_AsEWKB "SRID=4326;LINESTRING(0 0 1 2, 1 1 2 3, 2 2 3 4)")))))
+(decode (caar (postmodern:query (:select (:ST_AsEWKB "SRID=4326;LINESTRING(0 0 1 2, 1 1 2 3, 2 2 3 4)")))))
 
 Result:
 

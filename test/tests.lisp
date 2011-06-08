@@ -1,14 +1,22 @@
-;;(defpackage :cl-postgis-tests
-;;  (:use :common-lisp :postmodern)
-;;  (:export #:prompt-connection))
+(defpackage :cl-ewkb-tests
+  (:use :common-lisp :postmodern :cl-ewkb) ;; or cl-wkb
+  (:export #:test-cl-ewkb))
 
-;;(in-package :cl-postgis-tests)
+(in-package :cl-ewkb-tests)
 
+(defparameter *test-connection* '("osm" "guest" "guest" "gis-lab.info"))
 
-(require :postmodern)
-(use-package :postmodern)
-
-;;(connect-toplevel "michael" "michael" "xxx" "localhost")
+(defun prompt-connection (&optional (list *test-connection*))
+  (flet ((ask (name pos)
+           (format *query-io* "~a (enter to keep '~a'): " name (nth pos list))
+           (finish-output *query-io*)
+           (let ((answer (read-line *query-io*)))
+             (unless (string= answer "") (setf (nth pos list) answer)))))
+    (format *query-io* "~%To run this test, you must configure a database connection.~%")
+    (ask "Database name" 0)
+    (ask "User" 1)
+    (ask "Password" 2)
+    (ask "Hostname" 3)))
 
 (defmacro with-gensyms ((&rest names) &body body)
     `(let ,(loop for n in names collect `(,n (gensym)))
@@ -124,12 +132,14 @@ cases."
         (check
             (equalp geometrycollection (encode (decode geometrycollection))))))
 
-(deftest test-postgis ()
+(deftest test-cl-ewkb ()
+  (prompt-connection)
+  (with-connection *test-connection*
     (combine-results
-        (gispoint-test)
-        (gislinestring-test)
-        (gispolygon-test)
-        (gismultipoint-test)
-        (gismultilinestring-test)
-        (gismultipolygon-test)
-        (gisgeometrycollection-test)))
+      (gispoint-test)
+      (gislinestring-test)
+      (gispolygon-test)
+      (gismultipoint-test)
+      (gismultilinestring-test)
+      (gismultipolygon-test)
+      (gisgeometrycollection-test))))

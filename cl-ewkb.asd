@@ -4,7 +4,7 @@
 (in-package :cl-ewkb-system)
 
 (defsystem :cl-ewkb
-  :version "0.1"
+  :version "0.2"
   :maintainer "Michael Filonenko <filonenko.mikhail@gmail.com>"
   :author "Michael Filonenko <filonenko.mikhail@gmail.com>"
   :licence "MIT"
@@ -18,8 +18,13 @@
             :components ((:file "package")
                          (:file "wkb" :depends-on ("package"))))))
 
+(defpackage :cl-ewkb-tests-system
+  (:use :common-lisp :asdf))
+
+(in-package :cl-ewkb-tests-system)
+
 (defsystem :cl-ewkb-tests
   :depends-on (:cl-ewkb :postmodern)
   :components
-  ((:module :cl-ewkb
+  ((:module :test
             :components ((:file "tests")))))
